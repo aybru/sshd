@@ -1,0 +1,40 @@
+#!/bin/sh
+set -eo pipefail
+
+function log() {
+ echo "[$0] $*" >&2
+}
+
+# Create on first run
+if [ ! -f /etc/ssh/ssh_host_rsa_key ]; then
+ ssh-keygen -t rsa -b 4096 -f /etc/ssh/ssh_host_rsa_key -N ''
+ chmod 600 /etc/ssh/ssh_host_rsa_key
+fi
+if [ ! -f /etc/ssh/ssh_host_ecdsa_key ]; then
+ ssh-keygen -t ecdsa -f /etc/ssh/ssh_host_ecdsa_key -N ''
+ chmod 600 /etc/ssh/ssh_host_ecdsa_key
+fi
+if [ ! -f /etc/ssh/ssh_host_ed25519_key ]; then
+ ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N ''
+ chmod 600 /etc/ssh/ssh_host_ed25519_key
+fi
+
+# Source custom scripts, if any
+if [ -d /etc/scripts.d ]; then
+ for f in /etc/scripts.d/*; do {
+  if [ -x "$f" ]; then
+   log "Running $f ..."
+   $f
+  else
+   log "Could not run $f, because it's missing execute permission (+x)."
+  fi
+ } &
+ done
+ unset f
+fi
+
+if [ "${1:0:1}" = '-' ]; then
+ log "Executing $*"
+ set -- /usr/sbin/sshd "$@"
+fi
+exec "$@"
